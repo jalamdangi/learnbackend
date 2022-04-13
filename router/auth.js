@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const authenticate = require('../middleware/authenticate');
 
 require('../db/conn');
 const Users = require('../models/userSchema');
@@ -27,7 +28,7 @@ router.post("/register", async (req, res) => {
                 // password hashing
                 await User.save();
                 res.status(201).json({ message: "user register successfully" });
-                console.log('success');
+                console.log('user register success');
             }
         } catch (err) {
             console.log(err);
@@ -46,13 +47,20 @@ router.post("/login", async (req, res) => {
             const emailExist = await Users.findOne({ email: email });
             if (emailExist) {
                 const isMatch = await bcrypt.compare(password, emailExist.password);
+                const token = await emailExist.generateAuthToken();
+                console.log(token);
+                res.cookie("jwtoken",token,{
+                    expires: new Date(Date.now( + 600000)),
+                    httpOnly: true
+                });
                 if (isMatch) {
                     res.json("Login successfull")
+                    console.log("Login successfull")
                 }
-                else { res.json("wrong password") }
+                else { res.status(400).json("wrong password") }
                 //console.log(emailExist);
             } else {
-                res.json({ message: "email not found" })
+                res.status(400).json({ message: "email not found" })
             }
         }
     } catch (err) {
@@ -63,9 +71,10 @@ router.post("/login", async (req, res) => {
 
 
 
-
-router.get("/about", (req, res) => {
-    res.send("hello form the about server");
+// About us ka page with middleware user for authentication
+router.get("/about", authenticate, (req, res) => {
+    console.log("hello my about");
+    res.send(req.rootUser);
 })
 
 router.get("/contact", (req, res) => {
